@@ -1,3 +1,4 @@
+package main.java;
 import java.io.*;
 
 public class InputParser {
