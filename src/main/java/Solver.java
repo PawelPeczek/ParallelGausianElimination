@@ -27,7 +27,7 @@ public class Solver {
         Double[] K = getAllK(activeRow);
         Double[][] C = getAllC(activeRow, K);
         proceedUpdate(activeRow, C);
-//        System.out.println(equations.toString());
+        System.out.println(equations.toString());
     }
 
     private void findPivot(int activeRow) throws ExecutionException, InterruptedException {
@@ -91,7 +91,7 @@ public class Solver {
                 if(equations.A[finalI][activeRow] == 0) {
                     return 0.0;
                 } else {
-                    return equations.A[activeRow][activeRow] / equations.A[finalI][activeRow];
+                    return equations.A[finalI][activeRow] / equations.A[activeRow][activeRow];
                 }
             });
             futures.add(f);
@@ -111,19 +111,25 @@ public class Solver {
     }
 
     private Double[][] getAllC(int activeRow, Double[] K) throws ExecutionException, InterruptedException {
-        Double[][] C = new Double[equations.n][equations.n];
-        List<Future<Double>> futures = new ArrayList<>(equations.n * equations.n);
+        Double[][] C = new Double[equations.n][equations.n + 1];
+        List<Future<Double>> futures = new ArrayList<>((equations.n + 1) * equations.n);
         ThreadPoolExecutor cDetermineExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(equations.n); // not n^2 not to burn CPU
         for(int r = 0; r < equations.n; r++){
             if(r == activeRow){
                 continue;
             }
+            int finalR = r;
             for(int c = activeRow; c < equations.n; c++){
-                int finalR = r;
                 int finalC = c;
-                Future<Double> f = cDetermineExecutor.submit(() -> K[finalR] * equations.A[finalR][finalC]);
+                Future<Double> f = cDetermineExecutor.submit(() ->{
+//                    System.out.println(K[finalR] + " * " + equations.A[finalR][finalC] + " = " + (K[finalR] * equations.A[finalR][finalC]));
+                    return K[finalR] * equations.A[activeRow][finalC];
+                }
+                );
                 futures.add(f);
             }
+            Future<Double> f = cDetermineExecutor.submit(() -> K[finalR] * equations.b[activeRow]);
+            futures.add(f);
         }
 
         // get results
@@ -134,7 +140,10 @@ public class Solver {
             }
             for(int c = activeRow; c < equations.n; c++){
                 C[r][c] = futures.get(i).get();
+                i++;
             }
+            C[r][equations.n] = futures.get(i).get();
+            i++;
         }
         cDetermineExecutor.shutdown();
         return C;
@@ -147,12 +156,17 @@ public class Solver {
             if(r == activeRow){
                 continue;
             }
+            int finalR = r;
             for(int c = activeRow; c < equations.n; c++){
-                int finalR = r;
                 int finalC = c;
-                Future<Double> f = updateExecutor.submit(() -> equations.A[finalR][finalC] -= C[finalR][finalC]);
+                Future<Double> f = updateExecutor.submit(() -> {
+//                    System.out.println(equations.A[finalR][finalC] + " - " +  C[finalR][finalC] + " = " + (equations.A[finalR][finalC] - C[finalR][finalC]));
+                    return equations.A[finalR][finalC] -= C[finalR][finalC];
+                });
                 futures.add(f);
             }
+            Future<Double> f = updateExecutor.submit(() -> equations.b[finalR] -=  C[finalR][equations.n]);
+            futures.add(f);
         }
 
         // await termination
