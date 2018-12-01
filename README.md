@@ -1,4 +1,4 @@
-* Linear equations system solver
+# Linear equations system solver
 
 Input:
 1st argument: Input file
