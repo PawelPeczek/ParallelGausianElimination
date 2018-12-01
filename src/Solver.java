@@ -21,6 +21,14 @@ public class Solver {
         normalizeSolution();
     }
 
+    private void gaussJordanStep(int activeRow) throws ExecutionException, InterruptedException {
+        findPivot(activeRow);
+        Double[] K = getAllK(activeRow);
+        Double[][] C = getAllC(activeRow, K);
+        proceedUpdate(activeRow, C);
+//        System.out.println(equations.toString());
+    }
+
     private void findPivot(int activeRow) throws ExecutionException, InterruptedException {
         if(equations.A[activeRow][activeRow] != 0){
             return ;
@@ -51,14 +59,8 @@ public class Solver {
         for(Future<?> future : futures){
             future.get();
         }
+        rowCopyExecutor.shutdown();
     }
-
-    private void gaussJordanStep(int activeRow) throws ExecutionException, InterruptedException {
-        Double[] K = getAllK(activeRow);
-        Double[][] C = getAllC(activeRow, K);
-        proceedUpdate(activeRow, C);
-    }
-
 
     private void normalizeSolution() throws ExecutionException, InterruptedException {
         List<Future<?>> futures = new LinkedList<>();
@@ -75,6 +77,7 @@ public class Solver {
         for(Future<?> future : futures){
             future.get();
         }
+        normalizeExecutor.shutdown();
     }
 
     private Double[] getAllK(int activeRow) throws ExecutionException, InterruptedException {
@@ -83,8 +86,13 @@ public class Solver {
         ThreadPoolExecutor kDetermineExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(equations.n);
         for(int i = 0; i < equations.n; i++){
             final int finalI = i;
-            Future<Double> f = kDetermineExecutor.submit(() ->
-                    equations.A[activeRow][activeRow] / equations.A[finalI][activeRow]);
+            Future<Double> f = kDetermineExecutor.submit(() -> {
+                if(equations.A[finalI][activeRow] == 0) {
+                    return 0.0;
+                } else {
+                    return equations.A[activeRow][activeRow] / equations.A[finalI][activeRow];
+                }
+            });
             futures.add(f);
         }
         int i = 0;
@@ -92,6 +100,12 @@ public class Solver {
             K[i] = future.get();
             i++;
         }
+        kDetermineExecutor.shutdown();
+//        System.out.println("K:");
+//        for(int j = 0; j < equations.n; j++){
+//            System.out.print(K[j] + " ");
+//        }
+//        System.out.println();
         return K;
     }
 
@@ -121,6 +135,7 @@ public class Solver {
                 C[r][c] = futures.get(i).get();
             }
         }
+        cDetermineExecutor.shutdown();
         return C;
     }
 
@@ -143,6 +158,7 @@ public class Solver {
         for(Future<?> future : futures){
             future.get();
         }
+        updateExecutor.shutdown();
     }
 
 }

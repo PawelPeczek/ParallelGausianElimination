@@ -12,6 +12,10 @@ public class Program {
             InputParser inParser = new InputParser(inFileName);
             Equations equations = inParser.parseInput();
             System.out.println(equations.toString());
+            Solver solver = new Solver(equations);
+            solver.solve();
+            System.out.println("Solved:");
+            System.out.println(equations.toString());
             OutputSaver outSaver = new OutputSaver(outFileName, equations);
             outSaver.saveOutput();
         } catch (Exception ex){
