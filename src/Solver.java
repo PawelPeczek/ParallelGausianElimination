@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -13,7 +14,11 @@ public class Solver {
         this.equations = equations;
     }
 
-    public void solve(){
+    public void solve() throws ExecutionException, InterruptedException {
+        for(int activeRow = 0; activeRow < equations.n; activeRow++){
+            gaussJordanStep(activeRow);
+        }
+        normalizeSolution();
     }
 
     private void findPivot(int activeRow) throws ExecutionException, InterruptedException {
@@ -48,8 +53,28 @@ public class Solver {
         }
     }
 
-    private void gaussJordanStep(int activeRow){
+    private void gaussJordanStep(int activeRow) throws ExecutionException, InterruptedException {
         Double[] K = getAllK(activeRow);
+        Double[][] C = getAllC(activeRow, K);
+        proceedUpdate(activeRow, C);
+    }
+
+
+    private void normalizeSolution() throws ExecutionException, InterruptedException {
+        List<Future<?>> futures = new LinkedList<>();
+        ThreadPoolExecutor normalizeExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(equations.n);
+        for(int i = 0; i < equations.n; i++){
+            int finalI = i;
+            Future<?> f = normalizeExecutor.submit(() -> {
+                equations.b[finalI] /= equations.A[finalI][finalI];
+                equations.A[finalI][finalI] = 1.0;
+            });
+            futures.add(f);
+        }
+        // await termination
+        for(Future<?> future : futures){
+            future.get();
+        }
     }
 
     private Double[] getAllK(int activeRow) throws ExecutionException, InterruptedException {
@@ -58,9 +83,8 @@ public class Solver {
         ThreadPoolExecutor kDetermineExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(equations.n);
         for(int i = 0; i < equations.n; i++){
             final int finalI = i;
-            Future<Double> f = kDetermineExecutor.submit(() -> {
-                return equations.A[finalI][activeRow] / equations.A[finalI][activeRow];
-            });
+            Future<Double> f = kDetermineExecutor.submit(() ->
+                    equations.A[activeRow][activeRow] / equations.A[finalI][activeRow]);
             futures.add(f);
         }
         int i = 0;
@@ -70,4 +94,55 @@ public class Solver {
         }
         return K;
     }
+
+    private Double[][] getAllC(int activeRow, Double[] K) throws ExecutionException, InterruptedException {
+        Double[][] C = new Double[equations.n][equations.n];
+        List<Future<Double>> futures = new ArrayList<>(equations.n * equations.n);
+        ThreadPoolExecutor cDetermineExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(equations.n); // not n^2 not to burn CPU
+        for(int r = 0; r < equations.n; r++){
+            if(r == activeRow){
+                continue;
+            }
+            for(int c = activeRow; c < equations.n; c++){
+                int finalR = r;
+                int finalC = c;
+                Future<Double> f = cDetermineExecutor.submit(() -> K[finalR] * equations.A[finalR][finalC]);
+                futures.add(f);
+            }
+        }
+
+        // get results
+        int i = 0;
+        for(int r = 0; r < equations.n; r++){
+            if(r == activeRow){
+                continue;
+            }
+            for(int c = activeRow; c < equations.n; c++){
+                C[r][c] = futures.get(i).get();
+            }
+        }
+        return C;
+    }
+
+    private void proceedUpdate(int activeRow, Double[][] C) throws ExecutionException, InterruptedException {
+        List<Future<?>> futures = new LinkedList<>();
+        ThreadPoolExecutor updateExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(equations.n); // not n^2 not to burn CPU
+        for(int r = 0; r < equations.n; r++){
+            if(r == activeRow){
+                continue;
+            }
+            for(int c = activeRow; c < equations.n; c++){
+                int finalR = r;
+                int finalC = c;
+                Future<Double> f = updateExecutor.submit(() -> equations.A[finalR][finalC] -= C[finalR][finalC]);
+                futures.add(f);
+            }
+        }
+
+        // await termination
+        for(Future<?> future : futures){
+            future.get();
+        }
+    }
+
 }
