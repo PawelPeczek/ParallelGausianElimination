@@ -27,7 +27,7 @@ public class Solver {
         Double[] K = getAllK(activeRow);
         Double[][] C = getAllC(activeRow, K);
         proceedUpdate(activeRow, C);
-        System.out.println(equations.toString());
+//        System.out.println(equations.toString());
     }
 
     private void findPivot(int activeRow) throws ExecutionException, InterruptedException {

@@ -26,10 +26,14 @@ public class InputParser {
 
     private void fulfillA(BufferedReader br, Equations equations, int n) throws IOException {
         for(int i = 0; i < n; i++){
-            String line = br.readLine();
-            if(line == null){
-                throw new IllegalArgumentException("Input file in wrong format. Error while parsing line " + (i + 2));
-            }
+            String line;
+            do {
+                line = br.readLine();
+                if(line == null){
+                    throw new IllegalArgumentException("Input file in wrong format. Error while parsing line " + (i + 2));
+                }
+            } while(line.equals(""));
+            line = line.trim();
             String[] coef = line.split(" ");
             if(coef.length != n){
                 throw new IllegalArgumentException("Input file in wrong format - wrong number of elements in row. " +
@@ -40,10 +44,14 @@ public class InputParser {
     }
 
     private void fulfillB(BufferedReader br, Equations equations, int n) throws IOException {
-        String line =  br.readLine();
-        if(line == null){
-            throw new IllegalArgumentException("Input file in wrong format. Error while parsing line " + (n + 2));
-        }
+        String line;
+        do {
+            line = br.readLine();
+            if(line == null){
+                throw new IllegalArgumentException("Input file in wrong format. Error while parsing line " + (n + 2));
+            }
+        } while(line.equals(""));
+        line = line.trim();
         String[] coef = line.split(" ");
         if(coef.length != n){
             throw new IllegalArgumentException("Input file in wrong format - wrong number of elements in b vector. " +
